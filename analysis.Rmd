@@ -2,68 +2,92 @@
 output: html_document
 ---
 
-```{r}
+```{r echo=TRUE}
 library(xtable)
 library(ggplot2)
 ```
 # Storm Data Analysis Report
 
-# Data Processing
+From assignment brief for 2nd Peer Review, Reproducible Research:
+
+
+The basic goal of this assignment is to explore the NOAA Storm Database and answer some basic questions about severe weather events. You must use the database to answer the questions below and show the code for your entire analysis. Your analysis can consist of tables, figures, or other summaries. You may use any R package you want to support your analysis. 
+
+
+# Introduction
+
+This report analyses storm data fro the NOAA Storm Database. By analysing the data it hopes to answer which storm types have the greatest impact in terms of economic consequences, and likewise population health consequences.
+
+The report is in two broad sections:
+
+1. Data Preparation - documenting and describing the processing steps required to analyse and visualize the data and results
+
+2. Results - the depicted results and any necessary commentary.
+
+# Synopsys
+
+```Tornados``` are particularly damaging both economically, and in terms of population health. ```Flood```s are to be noted has having the greatest direct economic consequences.
+
+If able, and available, investment should be directed to measures to help limit population consequences in the presence of ```Tornadoes```. Likewise, ```Flood```, and ```Drought``` should be addressed to avoid economic consequences.
+
+---
+
+
+# Data Preparation
+
+The data processing stage of the analysis is required in order to shape the data into a manner appropriate for ranking, and plotting as required by the aggregate nature of the questions being answered by this analysis.
+
+## Loading the data
 ```{r echo=TRUE, cache=TRUE}
 storm.data.raw <- read.csv("./data.csv")
 ```
-# Executive Summary
 
+## Part 1
 
-# Part 1
+The following code aggregates all incidences of fatalities and injuries for specific event types
 
-## Data Preparation
 
 ```{r echo=TRUE}
 sumByEventType <- aggregate(x=storm.data.raw[, c("INJURIES", "FATALITIES")], by=list(EVTYPE = storm.data.raw$EVTYPE), FUN=sum)
+```
+
+The following code sorts the event-type aggregates in descending order to identify the event types with the highest incidences of fatalities and injuries
+
+
+```{r echo=TRUE}
 sortedByInjuries <- sumByEventType[with(sumByEventType, order(INJURIES, decreasing = TRUE)), c("EVTYPE","INJURIES")]
 sortedByFatalities <- sumByEventType[with(sumByEventType, order(FATALITIES, decreasing = TRUE)), c("EVTYPE","FATALITIES")]
 ```
-## Question
 
-Across the United States, which types of events (as indicated in the 𝙴𝚅𝚃𝚈𝙿𝙴 variable) are most harmful with respect to population health?
+The following code creates tables so that the events with the greatest impact to the population health can be identified
 
-```{r echo=TRUE,results="asis"}
-iTable <- xtable(head(sortedByInjuries, 20))
-print(iTable, type="html")
 
-fTable <- xtable(head(sortedByFatalities, 20))
-print(fTable, type="html")
+```{r echo=TRUE}
+iTable <- xtable(head(sortedByInjuries[, c("EVTYPE", "INJURIES")], 10))
+fTable <- xtable(head(sortedByFatalities[, c("EVTYPE", "FATALITIES")], 10))
 ```
 
-```{r results="asis",echo=TRUE}
+The following code sets up the bar chart plots for the number of instances of both injuries and fatalities for different event types.
+
+```{r echo=TRUE}
 fatalitiesPlot <- ggplot(head(sortedByFatalities, 20)) + geom_bar(aes(EVTYPE, FATALITIES), stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Top 20 Storm Events By Fatalities") + theme(legend.position = "right")
-
-print(fatalitiesPlot)
-
 injuriesPlot <- ggplot(head(sortedByInjuries, 20)) + geom_bar(aes(EVTYPE, INJURIES), stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Top 20 Storm Events By Injuries") + theme(legend.position = "right")
 
-print(injuriesPlot)
 ```
 
-It is informative to plot the occurrence of event types on both the axis of fatalities and injuries, to see the combined impact of both of these factors as contributors to impact to population health.
+The following code sets up a scatter plot so that the impact of both injuries and fatalities can be observed for different event types.
+
 
 ```{r echo=TRUE, results="asis"}
-health.scatterPlot <- ggplot(sumByEventType) + geom_point(aes(INJURIES, FATALITIES)) + geom_text(aes(x=INJURIES, y=FATALITIES, label=EVTYPE, hjust=-1, vjust=1))
-print(health.scatterPlot)
+health.scatterPlot <- ggplot(sumByEventType) + geom_point(aes(INJURIES, FATALITIES)) + geom_text(aes(x=INJURIES, y=FATALITIES, label=EVTYPE))
 ```
 
-```{r echo=TRUE, results="asis"}
-midrange <- sumByEventType[(sumByEventType$FATALITIES != 0 & sumByEventType$INJURIES != 0 & sumByEventType$EVTYPE != "TORNADO"), ];
-health.scatterPlot.nonZero.nonTornado <- ggplot(midrange) + geom_point(aes(INJURIES, FATALITIES)) + geom_text(aes(x=INJURIES, y=FATALITIES, label=EVTYPE, hjust=-1, vjust=1))
-print(health.scatterPlot.nonZero.nonTornado)
-```
+## Part 2
 
-# Part 2
+The following code helps prepare storm data for calculations and plotting to help answer the question regarding economic impact of certain storm event types.
 
-## Data preparation
+The following code is a helper function to be used with mapply to help create a column that contains the estimated cost of damage to property and crops in a format that allows the costs to be aggregated.
 
-We must first preprocess the data so that we can perform some aggregation
 
 ```{r echo=TRUE}
 expandCosts <- function(cost, exp) {
@@ -77,21 +101,118 @@ expandCosts <- function(cost, exp) {
     return (cost);
   }
 }
+```
 
+The following code subsets the raw data and applies the above ```expandCosts``` helper function to create a calculable damages column for both property damage and crop damage. This is because the data collector has been instructed to collect/provide damage estimates using an exponent of either "", "K" (thousands), "M" (millions), or "B" (billions). 
+
+```{r echo=TRUE}
 storm.data.damages <- storm.data.raw[, c("EVTYPE", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")];
 storm.data.damages.dn <- data.frame(storm.data.raw, PROPDMGRAW=mapply(FUN = expandCosts, cost=storm.data.damages$PROPDMG, exp=storm.data.damages$PROPDMGEXP), CROPDMGRAW=mapply(FUN=expandCosts, cost=storm.data.damages$CROPDMG, exp=storm.data.damages$CROPDMGEXP));
 ```
 
-```{r echo=TRUE,results="asis"}
+The following code aggregates the damages for property and crops respectively against different storm event types.
 
+
+```{r echo=TRUE}
+sumDamagesByType <- aggregate(x=storm.data.damages.dn[, c("PROPDMGRAW", "CROPDMGRAW")], by=list(EVTYPE = storm.data.damages.dn$EVTYPE), FUN = sum)
+sortedByProperty <- sumDamagesByType[with(sumDamagesByType, order(PROPDMGRAW, decreasing = TRUE)), ]; 
+sortedByCrop <- sumDamagesByType[with(sumDamagesByType, order(CROPDMGRAW, decreasing=TRUE)), ]
 ```
 
+The following code identifies the storm event types that have the highest impact in terms of property damage
+
+
+```{r echo=TRUE}
+# table for top 20 - by property damage
+top10PropertyDamageByType <- head(sortedByProperty[, c("EVTYPE","PROPDMGRAW")], 10);
+top10PropertyDamageByType.xtable <- xtable(top10PropertyDamageByType)
+
+top20PropertyDamageBarPlot <- ggplot(head(sortedByProperty, 20)) + geom_bar(aes(EVTYPE, PROPDMGRAW), stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Top 20 Storm Events by Property Damage $") + theme(legend.position = "right")
+```
+
+The following code identifies the storm event types that have the highest impact in terms of crop damage
+
+
+```{r echo=TRUE}
+# table for top 20 - by crop damage
+top10CropDamageByType <- head(sortedByCrop[, c("EVTYPE","CROPDMGRAW")], 10);
+top10CropDamageByType.xtable <- xtable(top10CropDamageByType);
+
+top20CropDamageBarPlot <- ggplot(head(sortedByCrop, 20)) + geom_bar(aes(EVTYPE, CROPDMGRAW), stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Top 20 Storm Events by Crop Damage $") + theme(legend.position = "right")
+```
+
+The following code prepares a scatter plot of both the cost to crops and the costs to property for various event types
+
+
+```{r echo=TRUE}
+damages.scatterPlot <- ggplot(sumDamagesByType) + geom_point(aes(PROPDMGRAW, CROPDMGRAW)) + geom_text(aes(x=PROPDMGRAW, y=CROPDMGRAW, label=EVTYPE))
+```
+
+---
+
+
+# Results
+
+## Part 1
+
+Across the United States, which types of events (as indicated in the 𝙴𝚅𝚃𝚈𝙿𝙴 variable) are most harmful with respect to population health?
+
+### Tables
+
+The following tables depicts the storm types that have had the greatest impact to population health. From the tables below it is clear that in the case of injuries, ```Tornado```, ```TSTM WIND```, ```FLOOD```, ```EXCESSIVE HEAT```, are the 4 highest causes of injury.
+
+```Tornado```, ```Excessive Heat```, ```Flash Flood``` and ```Heat``` are the greatest contributor to fatalities.
+
+```{r echo=TRUE, results="asis"}
+print(iTable, type="html")
+print(fTable, type="html")
+```
+
+### Charts
+
+The aforementioned storm types clearly stand out in the below bar charts as having significant impact to their respective quantities.
+
+
+```{r echo=TRUE, results="asis"}
+print(fatalitiesPlot)
+print(injuriesPlot)
+print(health.scatterPlot)
+```
+
+---
+
+## Part 2
 
 Across the United States, which types of events have the greatest economic consequences?
 
+
+### Tables
+
+The tables below show that in terms of property damage the top 4 contributors include: ```Flood```, ```Hurricane/Typhoon```, ```Tornado```, and ```Storm Surge```
+
+In terms of damage to crops (which has more indirect economic consequences), ```Drought```, ```Flood```, and ```River Flood``` are the highest contributors.
+
+
+```{r echo=TRUE, results="asis"}
+print(top10PropertyDamageByType.xtable, type="html")
+print(top10CropDamageByType.xtable, type="html")
+```
+
+### Charts
+
+The aforementioned storm event types are clearly depicted as having the highest significance in the respective charts below.
+
+```{r echo=TRUE, results="asis"}
+print(top20PropertyDamageBarPlot)
+print(top20CropDamageBarPlot)
+print(damages.scatterPlot)
+```
+
+---
+
 # Conclusion
 
-# Supplementary notes
+---
 
 ## Environment
 

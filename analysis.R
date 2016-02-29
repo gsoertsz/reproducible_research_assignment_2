@@ -53,10 +53,20 @@ sumDamagesByType <- aggregate(x=storm.data.damages.dn[, c("PROPDMGRAW", "CROPDMG
 sortedByProperty <- sumDamagesByType[with(sumDamagesByType, order(PROPDMGRAW, decreasing = TRUE)), ]; 
 sortedByCrop <- sumDamagesByType[with(sumDamagesByType, order(CROPDMGRAW, decreasing=TRUE)), ]
 
-# barchart for top 20 
+# table for top 20 - by property damage
+top20PropertyDamageByType <- head(sortedByProperty, 20);
+
+top20PropertyDamageByType.xtable <- xtable(top20PropertyDamageByType)
+print(top20PropertyDamageByType.xtable, type="html")
 
 top20PropertyDamageBarPlot <- ggplot(head(sortedByProperty, 20)) + geom_bar(aes(EVTYPE, PROPDMGRAW), stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Top 20 Storm Events by Property Damage $") + theme(legend.position = "right")
 print(top20PropertyDamageBarPlot)
+
+# table for top 20 - by crop damage
+top20CropDamageByType <- head(sortedByCrop, 20);
+
+top20CropDamageByType.xtable <- xtable(top20CropDamageByType);
+print(top20CropDamageByType.xtable, type="html");
 
 top20CropDamageBarPlot <- ggplot(head(sortedByCrop, 20)) + geom_bar(aes(EVTYPE, CROPDMGRAW), stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Top 20 Storm Events by Crop Damage $") + theme(legend.position = "right")
 print(top20CropDamageBarPlot)
@@ -66,3 +76,4 @@ print(damages.scatterPlot)
 
 damages.nonZero <- sumDamagesByType[(sumDamagesByType$PROPDMGRAW != 0 | sumDamagesByType$CROPDMGRAW != 0), ]
 damages.nonZero.scatterPlot <- ggplot(damages.nonZero) + geom_point(aes(PROPDMGRAW, CROPDMGRAW)) + geom_text(aes(x=PROPDMGRAW, y=CROPDMGRAW, label=EVTYPE))
+print(damages.nonZero.scatterPlot)
