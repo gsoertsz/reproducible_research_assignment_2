@@ -1,42 +1,22 @@
----
-output: html_document
----
 
-```{r}
 library(xtable)
 library(ggplot2)
-```
-# Storm Data Analysis Report
 
-# Data Processing
-```{r echo=TRUE, cache=TRUE}
+# preparation
+
 storm.data.raw <- read.csv("./data.csv")
-```
-# Executive Summary
 
-
-# Part 1
-
-## Data Preparation
-
-```{r echo=TRUE}
+# part 1
 sumByEventType <- aggregate(x=storm.data.raw[, c("INJURIES", "FATALITIES")], by=list(EVTYPE = storm.data.raw$EVTYPE), FUN=sum)
 sortedByInjuries <- sumByEventType[with(sumByEventType, order(INJURIES, decreasing = TRUE)), c("EVTYPE","INJURIES")]
 sortedByFatalities <- sumByEventType[with(sumByEventType, order(FATALITIES, decreasing = TRUE)), c("EVTYPE","FATALITIES")]
-```
-## Question
 
-Across the United States, which types of events (as indicated in the 𝙴𝚅𝚃𝚈𝙿𝙴 variable) are most harmful with respect to population health?
-
-```{r echo=TRUE,results="asis"}
 iTable <- xtable(head(sortedByInjuries, 20))
 print(iTable, type="html")
 
 fTable <- xtable(head(sortedByFatalities, 20))
 print(fTable, type="html")
-```
 
-```{r results="asis",echo=TRUE}
 fatalitiesPlot <- ggplot(head(sortedByFatalities, 20)) + geom_bar(aes(EVTYPE, FATALITIES), stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Top 20 Storm Events By Fatalities") + theme(legend.position = "right")
 
 print(fatalitiesPlot)
@@ -44,28 +24,16 @@ print(fatalitiesPlot)
 injuriesPlot <- ggplot(head(sortedByInjuries, 20)) + geom_bar(aes(EVTYPE, INJURIES), stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Top 20 Storm Events By Injuries") + theme(legend.position = "right")
 
 print(injuriesPlot)
-```
 
-It is informative to plot the occurrence of event types on both the axis of fatalities and injuries, to see the combined impact of both of these factors as contributors to impact to population health.
-
-```{r echo=TRUE, results="asis"}
 health.scatterPlot <- ggplot(sumByEventType) + geom_point(aes(INJURIES, FATALITIES)) + geom_text(aes(x=INJURIES, y=FATALITIES, label=EVTYPE, hjust=-1, vjust=1))
 print(health.scatterPlot)
-```
 
-```{r echo=TRUE, results="asis"}
 midrange <- sumByEventType[(sumByEventType$FATALITIES != 0 & sumByEventType$INJURIES != 0 & sumByEventType$EVTYPE != "TORNADO"), ];
 health.scatterPlot.nonZero.nonTornado <- ggplot(midrange) + geom_point(aes(INJURIES, FATALITIES)) + geom_text(aes(x=INJURIES, y=FATALITIES, label=EVTYPE, hjust=-1, vjust=1))
 print(health.scatterPlot.nonZero.nonTornado)
-```
 
-# Part 2
+## part 2
 
-## Data preparation
-
-We must first preprocess the data so that we can perform some aggregation
-
-```{r echo=TRUE}
 expandCosts <- function(cost, exp) {
   if (exp == "K" || exp == "k") {
     return (cost * 1000); 
@@ -80,22 +48,21 @@ expandCosts <- function(cost, exp) {
 
 storm.data.damages <- storm.data.raw[, c("EVTYPE", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")];
 storm.data.damages.dn <- data.frame(storm.data.raw, PROPDMGRAW=mapply(FUN = expandCosts, cost=storm.data.damages$PROPDMG, exp=storm.data.damages$PROPDMGEXP), CROPDMGRAW=mapply(FUN=expandCosts, cost=storm.data.damages$CROPDMG, exp=storm.data.damages$CROPDMGEXP));
-```
 
-```{r echo=TRUE,results="asis"}
+sumDamagesByType <- aggregate(x=storm.data.damages.dn[, c("PROPDMGRAW", "CROPDMGRAW")], by=list(EVTYPE = storm.data.damages.dn$EVTYPE), FUN = sum)
+sortedByProperty <- sumDamagesByType[with(sumDamagesByType, order(PROPDMGRAW, decreasing = TRUE)), ]; 
+sortedByCrop <- sumDamagesByType[with(sumDamagesByType, order(CROPDMGRAW, decreasing=TRUE)), ]
 
-```
+# barchart for top 20 
 
+top20PropertyDamageBarPlot <- ggplot(head(sortedByProperty, 20)) + geom_bar(aes(EVTYPE, PROPDMGRAW), stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Top 20 Storm Events by Property Damage $") + theme(legend.position = "right")
+print(top20PropertyDamageBarPlot)
 
-Across the United States, which types of events have the greatest economic consequences?
+top20CropDamageBarPlot <- ggplot(head(sortedByCrop, 20)) + geom_bar(aes(EVTYPE, CROPDMGRAW), stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Top 20 Storm Events by Crop Damage $") + theme(legend.position = "right")
+print(top20CropDamageBarPlot)
 
-# Conclusion
+damages.scatterPlot <- ggplot(sumDamagesByType) + geom_point(aes(PROPDMGRAW, CROPDMGRAW)) + geom_text(aes(x=PROPDMGRAW, y=CROPDMGRAW, label=EVTYPE))
+print(damages.scatterPlot)
 
-# Supplementary notes
-
-## Environment
-
-```{r}
-sessionInfo()
-```
-
+damages.nonZero <- sumDamagesByType[(sumDamagesByType$PROPDMGRAW != 0 | sumDamagesByType$CROPDMGRAW != 0), ]
+damages.nonZero.scatterPlot <- ggplot(damages.nonZero) + geom_point(aes(PROPDMGRAW, CROPDMGRAW)) + geom_text(aes(x=PROPDMGRAW, y=CROPDMGRAW, label=EVTYPE))
